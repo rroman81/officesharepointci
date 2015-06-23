@@ -1,3 +1,5 @@
+#REQUIRES -Version 2.0
+
 #------------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation.  All rights reserved.
 #
@@ -63,6 +65,9 @@ function InitializeScriptVariables() {
     "Microsoft.SharePoint.WorkflowActions.dll",
     "Microsoft.Web.CommandUI.dll"
   )
+
+  # Source path where the SharePoint15 Reference Assemblies are located (this is a better source than relying on Gac40 as multiple versions can exist in the GAC)
+  $Script:SharePoint15ReferenceAssembliesPath = Join-Path $env:ProgramFiles "Common Files\microsoft shared\Web Server Extensions\15\ISAPI"
 
   # Destination path where SharePoint15 assemblies will be copied
   $Script:SharePoint15ReferenceAssemblyPath = Join-Path $ProgramFilesPath "Reference Assemblies\Microsoft\SharePoint15"
@@ -182,7 +187,7 @@ function CollectSharePointProjectFiles() {
   WriteText ""
 
   WriteText "Collecting the SharePoint reference assemblies:"
-  $SharePoint15ReferenceAssemblies | CopyFileFromFolder $Gac40Path -Recurse
+  $SharePoint15ReferenceAssemblies | CopyFileFromFolder $SharePoint15ReferenceAssembliesPath
   WriteText ""
 
   WriteText "Collecting the MSBuild extensions dependencies of SharePoint project:"
@@ -194,7 +199,7 @@ function CollectSharePointProjectFiles() {
   WriteText ""
 
   WriteText "Collecting the SharePoint project assemblies:"
-  $SharePointProjectAssemblies | CopyFileFromFolder $Gac40Path -Recurse
+  $SharePointProjectAssemblies | CopyFileFromFolder $Gac40Path -Recurse -ProductVersion "12.0"
   WriteText ""
 
   WriteText "Collecting workflow assemblies:"
@@ -299,7 +304,9 @@ function TestAssemblyInGac40($AssemblyFileName) {
 }
 
 # Copies file from the specified path or its sub-directory to the $FilesPath
-function CopyFileFromFolder([string]$Path, [switch]$Recurse) {
+<#
+#>
+function CopyFileFromFolder([string]$Path, [string]$ProductVersion = '', [switch]$Recurse) {
   process {
     $FileName = $_
     if (!$Recurse) {
@@ -311,6 +318,10 @@ function CopyFileFromFolder([string]$Path, [switch]$Recurse) {
     if (!$FileInfo) {
       WriteWarning """$FileName"" was not found in $Path"
       return
+    }
+
+    if ($ProductVersion -ne '') {
+      $FileInfo = $FileInfo | ?{ $_.VersionInfo.ProductVersion -match "^$ProductVersion" }
     }
 
     if ($FileInfo -is [array]) {
